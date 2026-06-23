@@ -1,0 +1,7 @@
+{
+  "name": "Wheez by Sendrail",
+  "description": "An exquisite premium luxury car rental platform. Access and rent an elite fleet, including Lamborghini Urus, Toyota Prado, and Lexus LC, with high-accuracy diagnostics, add-ons config, and touchless smartphone keyless entry.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+
