@@ -1,4 +1,4 @@
-export type AppState = 'landing' | 'customer' | 'driver' | 'content' | 'luxury-book';
+export type AppState = 'landing' | 'customer' | 'driver' | 'content' | 'luxury-book' | 'dashboard';
 
 export type CustomerStep = 'estimate' | 'login' | 'home' | 'matching' | 'trip' | 'payment' | 'done' | 'dashboard';
 

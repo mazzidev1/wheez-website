@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { AppState, CustomerStep, RideParams } from '../types';
-import { Plane, Plus, MoveRight, Wine, Backpack, ArrowLeft, Star, Navigation, CheckCircle2, ShieldCheck, CreditCard, LayoutDashboard, MapPin } from 'lucide-react';
+import { Plane, Plus, MoveRight, Wine, Backpack, ArrowLeft, Star, Navigation, CheckCircle2, ShieldCheck, CreditCard, LayoutDashboard, MapPin, Car, Settings2 } from 'lucide-react';
+import CustomSelect from './CustomSelect';
 import Logo from './Logo';
 
 interface Props {
@@ -10,11 +11,14 @@ interface Props {
 }
 
 export default function CustomerFlow({ setView, initialParams }: Props) {
-  const [step, setStep] = useState<CustomerStep>(initialParams?.pickup ? 'estimate' : 'home');
+  const [step, setStep] = useState<CustomerStep>('home');
   const [category, setCategory] = useState<string>(initialParams?.category || 'Airport');
   const [tip, setTip] = useState<number>(0);
   const [pickup, setPickup] = useState<string>(initialParams?.pickup || '');
-  const [duration, setDuration] = useState<string>(initialParams?.duration || '12');
+  const [duration, setDuration] = useState<string>(initialParams?.duration || '6 Hours');
+  const [vehicleBrand, setVehicleBrand] = useState<string>('');
+  const [vehicleClass, setVehicleClass] = useState<string>('Sedan');
+  const [transmission, setTransmission] = useState<string>('Automatic');
   
   const estimatedFare = useMemo(() => {
     if (!pickup.trim()) return 0;
@@ -28,6 +32,7 @@ export default function CustomerFlow({ setView, initialParams }: Props) {
     'Hospital': Plus,
     'Nightlife': Wine,
     'School': Backpack,
+    'Long Trip': Navigation,
   };
 
   const handleBack = () => {
@@ -71,14 +76,14 @@ export default function CustomerFlow({ setView, initialParams }: Props) {
             
             <div className="bg-brand-surface border border-black/5 shadow-sm rounded-3xl p-6 mb-6">
               <label className="text-xs font-semibold text-brand-muted tracking-wide uppercase block mb-4">Trip Category</label>
-              <div className="grid grid-cols-4 gap-3 mb-6">
+              <div className="flex flex-wrap gap-2 mb-6">
                 {Object.keys(catIcons).map((cat) => {
                   const Icon = catIcons[cat];
                   const active = category === cat;
                   return (
                     <button 
                       key={cat} onClick={() => setCategory(cat)}
-                      className={`flex flex-col items-center justify-center p-3 rounded-2xl border transition-all ${active ? 'bg-brand-accent/10 border-brand-accent text-brand-accent' : 'bg-black/5 border-transparent text-brand-muted hover:bg-black/10'}`}
+                      className={`flex-1 min-w-[70px] flex flex-col items-center justify-center p-3 rounded-2xl border transition-all ${active ? 'bg-brand-accent/10 border-brand-accent text-brand-accent' : 'bg-black/5 border-transparent text-brand-muted hover:bg-black/10'}`}
                     >
                       <Icon className="w-5 h-5 mb-2" />
                       <span className="text-[10px] font-medium tracking-wide uppercase">{cat}</span>
@@ -101,22 +106,71 @@ export default function CustomerFlow({ setView, initialParams }: Props) {
                 </div>
                 <div className="relative flex items-center">
                   <div className="absolute left-[-26px] w-4 h-4 rounded-full border-2 border-brand-accent bg-brand-surface z-10"></div>
-                  <select
+                  <CustomSelect
                     value={duration}
-                    onChange={(e) => setDuration(e.target.value)}
-                    className="w-full bg-brand-base border border-black/5 rounded-2xl p-4 text-sm font-medium outline-none focus:border-brand-accent transition-colors appearance-none"
-                  >
-                    <option value="6">6 Hours</option>
-                    <option value="12">12 Hours</option>
-                    <option value="24">24 Hours</option>
-                  </select>
+                    onChange={setDuration}
+                    className="w-full"
+                    options={[
+                      { value: "6 Hours", label: "6 Hours" },
+                      { value: "12 Hours", label: "12 Hours" },
+                      { value: "24 Hours", label: "24 Hours" }
+                    ]}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-brand-surface border border-black/5 shadow-sm rounded-3xl p-6 mb-6">
+              <label className="text-xs font-semibold text-brand-muted tracking-wide uppercase block mb-4">Your Vehicle Details</label>
+              
+              <div className="space-y-4">
+                <div className="relative flex items-center">
+                  <div className="absolute left-4 w-4 h-4 text-brand-muted z-10"><Car className="w-full h-full" /></div>
+                  <input
+                    type="text"
+                    value={vehicleBrand}
+                    onChange={(e) => setVehicleBrand(e.target.value)}
+                    placeholder="E.g. Toyota Camry 2021"
+                    className="w-full bg-brand-base border border-black/5 rounded-2xl p-4 pl-12 text-sm font-medium outline-none focus:border-brand-accent transition-colors"
+                  />
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="relative flex items-center">
+                  <CustomSelect
+                      value={vehicleClass}
+                      onChange={setVehicleClass}
+                      className="w-full"
+                      icon={<Car className="w-5 h-5 text-brand-muted" />}
+                      options={[
+                        { value: "Sedan", label: "Sedan" },
+                        { value: "SUV", label: "SUV" },
+                        { value: "Minivan", label: "Minivan" },
+                        { value: "Pickup", label: "Pickup" },
+                        { value: "Other", label: "Other" }
+                      ]}
+                    />
+                  </div>
+                  
+                  <div className="relative flex items-center">
+                  <CustomSelect
+                      value={transmission}
+                      onChange={setTransmission}
+                      className="w-full"
+                      icon={<Settings2 className="w-5 h-5 text-brand-muted" />}
+                      options={[
+                        { value: "Automatic", label: "Automatic" },
+                        { value: "Manual", label: "Manual" }
+                      ]}
+                    />
+                  </div>
                 </div>
               </div>
             </div>
 
             <button 
               onClick={() => setStep('estimate')}
-              disabled={!pickup}
+              disabled={!pickup || !vehicleBrand}
               className="mt-auto w-full py-5 rounded-2xl bg-brand-text text-brand-base font-semibold text-lg hover:scale-[1.02] active:scale-95 transition-all shadow-md disabled:opacity-50 disabled:pointer-events-none"
             >
               Get Estimate
@@ -162,8 +216,26 @@ export default function CustomerFlow({ setView, initialParams }: Props) {
                   </div>
                   <div>
                     <h4 className="text-brand-muted text-xs font-semibold tracking-wide uppercase mb-1">Duration</h4>
-                    <p className="font-medium">{duration ? `${duration} Hours` : 'Not set'}</p>
+                    <p className="font-medium">{duration || 'Not set'}</p>
                   </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-brand-surface border border-black/5 shadow-sm rounded-3xl p-6 mb-8 mt-2">
+              <h4 className="text-brand-muted text-xs font-semibold tracking-wide uppercase mb-4 pb-4 border-b border-black/5">Vehicle Configuration</h4>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <h4 className="text-brand-muted text-[10px] font-semibold tracking-wide uppercase mb-1">Model</h4>
+                  <p className="font-medium text-sm">{vehicleBrand}</p>
+                </div>
+                <div>
+                  <h4 className="text-brand-muted text-[10px] font-semibold tracking-wide uppercase mb-1">Type</h4>
+                  <p className="font-medium text-sm">{vehicleClass}</p>
+                </div>
+                <div>
+                  <h4 className="text-brand-muted text-[10px] font-semibold tracking-wide uppercase mb-1">Transmission</h4>
+                  <p className="font-medium text-sm">{transmission}</p>
                 </div>
               </div>
             </div>

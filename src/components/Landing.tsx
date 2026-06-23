@@ -20,18 +20,20 @@ import luxurySedan from '../assets/images/luxury_sedan_1782136599120.jpg';
 import luxuryVan from '../assets/images/luxury_van_1782136613155.jpg';
 import yellowUrus from '../assets/images/yellow_urus_1782141995181.jpg';
 import Logo from './Logo';
+import CustomSelect from './CustomSelect';
 
 interface Props {
   setView: (view: AppState) => void;
   onStartRide?: (params: RideParams) => void;
   navigateToPage?: (pageId: ContentPageId) => void;
   onBookCar?: (carId: string) => void;
+  onLogin?: () => void;
 }
 
-export default function Landing({ setView, onStartRide, navigateToPage, onBookCar }: Props) {
-  const [duration, setDuration] = useState('6 hours');
+export default function Landing({ setView, onStartRide, navigateToPage, onBookCar, onLogin }: Props) {
+  const [duration, setDuration] = useState('6 Hours');
   const [pickup, setPickup] = useState('');
-  const [category, setCategory] = useState('Airport Runs');
+  const [category, setCategory] = useState('Airport');
 
   const handleSearch = () => {
     if (onStartRide) {
@@ -60,7 +62,10 @@ export default function Landing({ setView, onStartRide, navigateToPage, onBookCa
         <div className="flex items-center gap-6 text-[11px] font-mono tracking-widest flex-shrink-0">
           <span className="hidden sm:block text-brand-muted uppercase">USD · EN</span>
           <button 
-            onClick={() => setView('customer')}
+            onClick={() => {
+              if (onLogin) onLogin();
+              else setView('customer');
+            }}
             className="bg-[#191814] text-white px-6 py-2.5 rounded-none font-sans text-sm font-medium hover:bg-black transition-colors"
           >
             Log in
@@ -69,8 +74,8 @@ export default function Landing({ setView, onStartRide, navigateToPage, onBookCa
       </nav>
 
       {/* HERO SECTION */}
-      <div className="px-4 sm:px-6 w-full max-w-[1440px] mx-auto z-10 relative mb-32 md:mb-40">
-        <div className="relative rounded-none bg-gradient-to-tr from-[#302113] via-[#4a3522] to-[#604830] min-h-[500px] md:min-h-[580px] flex flex-col justify-center items-center pt-10 pb-32 shadow-sm">
+      <div className="px-4 sm:px-6 w-full max-w-[1440px] mx-auto z-10 relative mb-[160px] md:mb-40">
+        <div className="relative rounded-none bg-gradient-to-tr from-[#302113] via-[#4a3522] to-[#604830] min-h-[500px] md:min-h-[580px] flex flex-col justify-center items-center pt-10 pb-32 md:pb-40 shadow-sm">
           
           <div className="absolute inset-0 rounded-none overflow-hidden pointer-events-none">
              <div className="absolute inset-0 bg-cover bg-center opacity-60 mix-blend-overlay scale-105" style={{ backgroundImage: `url(${heroArriving})` }}></div>
@@ -82,14 +87,14 @@ export default function Landing({ setView, onStartRide, navigateToPage, onBookCa
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, ease: "easeOut" }}
-            className="relative z-20 text-center px-4 mt-8"
+            className="relative z-20 text-center px-4 mt-8 md:mt-2"
           >
-            <h1 className="font-display text-[56px] md:text-[80px] lg:text-[100px] leading-[1.05] tracking-tight text-[#FAF9F6]">
-              Effortless journeys —<br />
-              your <span className="italic text-[#ceaf8d]">car,</span> our <span className="italic text-[#ceaf8d]">driver.</span>
+            <h1 className="font-display text-[48px] sm:text-[56px] md:text-[80px] lg:text-[100px] leading-[1.05] tracking-tight text-[#FAF9F6]">
+              Premium journeys —<br />
+              <span className="italic text-[#ceaf8d]">hire a driver</span>, or <span className="italic text-[#ceaf8d]">book a car.</span>
             </h1>
-            <p className="mt-8 text-[#FAF9F6]/80 text-lg md:text-xl max-w-2xl mx-auto font-sans leading-relaxed">
-              A professional comes to you and drives your own car — the airport run, the late night, the long haul. Always cashless.
+            <p className="mt-6 md:mt-8 text-[#FAF9F6]/80 text-base sm:text-lg md:text-xl max-w-2xl mx-auto font-sans leading-relaxed">
+              Book a professional to drive your own car, or request a premium vehicle with a chauffeur. The perfect solution for the airport run, the late night, or the long haul.
             </p>
           </motion.div>
 
@@ -98,7 +103,7 @@ export default function Landing({ setView, onStartRide, navigateToPage, onBookCa
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.2, ease: "easeOut" }}
-            className="absolute -bottom-[80px] md:-bottom-[64px] left-1/2 -translate-x-1/2 w-[92%] max-w-[1000px] bg-brand-base border border-black/10 rounded-none shadow-sm z-30 flex flex-col p-2"
+            className="absolute bottom-0 translate-y-1/2 left-1/2 -translate-x-1/2 w-[92%] sm:w-[85%] max-w-[1000px] bg-brand-base border border-black/10 rounded-none shadow-sm z-30 flex flex-col p-2"
           >
             {/* TABS */}
             <div className="flex items-center gap-1 md:gap-2 px-4 md:px-6 pt-3 pb-2 md:pt-4">
@@ -108,7 +113,7 @@ export default function Landing({ setView, onStartRide, navigateToPage, onBookCa
             </div>
 
             <div className="flex flex-col md:flex-row items-center justify-between relative w-full">
-              <div className="flex-1 w-full flex items-center px-6 md:px-8 border-b md:border-b-0 md:border-r border-black/5 focus-within:bg-black/[0.02] transition-colors rounded-none h-[4.5rem] md:h-[5.5rem] hover:bg-black/[0.02] cursor-text">
+              <div className="flex-1 w-full flex items-center px-6 md:px-8 border-b md:border-b-0 md:border-r border-black/5 focus-within:bg-black/[0.02] transition-colors rounded-none h-[5rem] lg:h-[5.5rem] hover:bg-black/[0.02] cursor-text">
                 <div className="flex flex-col text-left w-full h-full justify-center">
                   <label className="text-[10px] md:text-[11px] font-mono text-brand-muted uppercase tracking-widest mb-1">Pickup</label>
                   <input 
@@ -121,41 +126,43 @@ export default function Landing({ setView, onStartRide, navigateToPage, onBookCa
                 </div>
               </div>
             
-              <div className="flex-1 w-full flex items-center px-6 md:px-8 border-b md:border-b-0 md:border-r border-black/5 focus-within:bg-black/[0.02] transition-colors h-[4.5rem] md:h-[5.5rem] hover:bg-black/[0.02] cursor-text">
+              <div className="flex-1 w-full flex items-center px-6 md:px-8 border-b md:border-b-0 md:border-r border-black/5 focus-within:bg-black/[0.02] transition-colors h-[5rem] lg:h-[5.5rem] hover:bg-black/[0.02] cursor-text">
                 <div className="flex flex-col text-left w-full h-full justify-center">
                   <label className="text-[10px] md:text-[11px] font-mono text-brand-muted uppercase tracking-widest mb-1">Duration</label>
-                  <select 
+                  <CustomSelect 
                     value={duration}
-                    onChange={(e) => setDuration(e.target.value)}
-                    className="font-medium text-base md:text-lg text-brand-text bg-transparent outline-none w-full cursor-pointer appearance-none"
-                  >
-                    <option value="6 Hours">6 Hours Standby</option>
-                    <option value="12 Hours">12 Hours Standby</option>
-                    <option value="24 Hours">24 Hours Standby</option>
-                  </select>
+                    onChange={setDuration}
+                    variant="transparent"
+                    options={[
+                      { value: "6 Hours", label: "6 Hours Standby" },
+                      { value: "12 Hours", label: "12 Hours Standby" },
+                      { value: "24 Hours", label: "24 Hours Standby" }
+                    ]}
+                  />
                 </div>
               </div>
 
-              <div className="flex-1 w-full flex items-center px-6 md:px-8 focus-within:bg-black/[0.02] transition-colors h-[4.5rem] md:h-[5.5rem] hover:bg-black/[0.02] cursor-pointer">
+              <div className="flex-1 w-full flex items-center px-6 md:px-8 focus-within:bg-black/[0.02] transition-colors h-[5rem] lg:h-[5.5rem] hover:bg-black/[0.02] cursor-pointer">
                 <div className="flex flex-col text-left w-full h-full justify-center">
                   <label className="text-[10px] md:text-[11px] font-mono text-brand-muted uppercase tracking-widest mb-1">Category</label>
-                  <select 
+                  <CustomSelect 
                     value={category}
-                    onChange={(e) => setCategory(e.target.value)}
-                    className="font-medium text-base md:text-lg text-brand-text bg-transparent outline-none w-full cursor-pointer appearance-none"
-                  >
-                    <option value="Airport Runs">Airport Runs</option>
-                    <option value="Night Out">Night Out</option>
-                    <option value="Long Drive">Long Drive</option>
-                    <option value="Hospital">Hospital Standby</option>
-                    <option value="School & Care">School & Care</option>
-                  </select>
+                    onChange={setCategory}
+                    variant="transparent"
+                    options={[
+                      { value: "Airport", label: "Airport Runs" },
+                      { value: "Nightlife", label: "Night Out" },
+                      { value: "Long Trip", label: "Long Drive" },
+                      { value: "Hospital", label: "Hospital Standby" },
+                      { value: "School", label: "School & Care" }
+                    ]}
+                  />
                 </div>
               </div>
 
               <button 
                 onClick={handleSearch}
-                className="w-full md:w-auto h-[4.5rem] px-8 md:h-[4.5rem] md:px-10 rounded-none bg-[#1e2311] text-[#d4ff63] text-lg flex items-center justify-center hover:scale-105 active:scale-95 transition-all shadow-md md:mr-2 flex-shrink-0 group mt-2 md:mt-0 gap-3"
+                className="w-[calc(100%-2rem)] mx-4 md:mx-0 md:w-auto h-[4rem] lg:h-[4.5rem] px-8 md:px-10 rounded-none bg-[#1e2311] text-[#d4ff63] text-lg flex items-center justify-center hover:scale-105 active:scale-95 transition-all shadow-md md:mr-2 flex-shrink-0 group mt-4 mb-4 md:mt-0 md:mb-0 gap-3"
               >
                  <div className="w-8 h-8 rounded-none border-[2.5px] border-[#d4ff63] flex items-center justify-center text-[#d4ff63] group-hover:scale-110 transition-transform">
                     <Logo size={14} className="text-[#d4ff63]" />
@@ -467,8 +474,8 @@ export default function Landing({ setView, onStartRide, navigateToPage, onBookCa
                 <p className="font-sans text-[#191814]/60 text-sm leading-relaxed">Your car. Our driver. A calmer way to get where you're going.</p>
              </div>
 
-             <div className="flex flex-wrap lg:flex-nowrap gap-16 md:gap-24">
-                 <div className="min-w-[120px]">
+             <div className="flex flex-wrap lg:flex-nowrap gap-12 md:gap-24">
+                 <div className="min-w-[120px] sm:min-w-[140px]">
                     <h5 className="font-mono text-[10px] uppercase tracking-widest text-[#191814]/40 mb-6">Ride</h5>
                     <ul className="space-y-4 font-sans text-[#191814]/80 text-[15px]">
                        <li><button onClick={() => navigateToPage?.('ride-airport')} className="hover:text-[#986D43] transition-colors">Airport</button></li>

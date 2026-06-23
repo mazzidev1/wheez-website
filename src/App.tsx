@@ -1,10 +1,13 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
+import { auth, googleProvider, signInWithPopup, signOut, onAuthStateChanged } from './lib/firebase';
+import { User } from 'firebase/auth';
 import Landing from './components/Landing';
 import CustomerFlow from './components/CustomerFlow';
 import DriverFlow from './components/DriverFlow';
 import ContentPage from './components/ContentPage';
 import LuxuryBookFlow from './components/LuxuryBookFlow';
+import UserDashboard from './components/UserDashboard';
 import { AppState, RideParams, ContentPageId, CarDetail } from './types';
 
 import luxurySuv from './assets/images/luxury_suv_1782136584014.jpg';
@@ -85,6 +88,35 @@ export default function App() {
   const [rideParams, setRideParams] = useState<RideParams | undefined>();
   const [contentPageId, setContentPageId] = useState<ContentPageId>('company-about');
   const [selectedCar, setSelectedCar] = useState<CarDetail | undefined>();
+  const [user, setUser] = useState<User | null>(null);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      if (currentUser && view === 'landing') {
+        setView('dashboard');
+      }
+    });
+    return () => unsubscribe();
+  }, [view]);
+
+  const handleLogin = async () => {
+    try {
+      await signInWithPopup(auth, googleProvider);
+      setView('dashboard');
+    } catch (error) {
+      console.error("Login failed", error);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      setView('landing');
+    } catch (error) {
+      console.error("Logout failed", error);
+    }
+  };
 
   const handleStartRide = (params: RideParams) => {
     setRideParams(params);
@@ -109,7 +141,7 @@ export default function App() {
       <AnimatePresence mode="wait">
         {view === 'landing' && (
           <motion.div key="landing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.6 }} className="flex-1 flex flex-col">
-            <Landing setView={setView} onStartRide={handleStartRide} navigateToPage={navigateToPage} onBookCar={handleBookCar} />
+            <Landing setView={setView} onStartRide={handleStartRide} navigateToPage={navigateToPage} onBookCar={handleBookCar} onLogin={handleLogin} />
           </motion.div>
         )}
         {view === 'customer' && (
@@ -130,6 +162,11 @@ export default function App() {
         {view === 'luxury-book' && selectedCar && (
           <motion.div key="luxury-book" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.6 }} className="flex-1 flex flex-col">
             <LuxuryBookFlow setView={setView} selectedCar={selectedCar} />
+          </motion.div>
+        )}
+        {view === 'dashboard' && user && (
+          <motion.div key="dashboard" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.6 }} className="flex-1 flex flex-col">
+            <UserDashboard user={user} onLogout={handleLogout} onBack={() => setView('landing')} />
           </motion.div>
         )}
       </AnimatePresence>
