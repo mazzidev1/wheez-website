@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { AppState, DriverStep } from '../types';
-import { ArrowLeft, ShieldCheck, UploadCloud, CheckCircle2, Navigation, DollarSign, Star } from 'lucide-react';
+import { ArrowLeft, ShieldCheck, UploadCloud, CheckCircle2 } from 'lucide-react';
+import { db, auth } from '../lib/firebase';
+import { collection, addDoc } from 'firebase/firestore';
 import Logo from './Logo';
 
 interface Props {
@@ -9,16 +11,45 @@ interface Props {
 }
 
 export default function DriverFlow({ setView }: Props) {
-  const [step, setStep] = useState<DriverStep>('login');
+  // Check if they previously submitted an application on this browser
+  const [step, setStep] = useState<DriverStep>(() => {
+    const saved = localStorage.getItem('driverOnboardingSubmitted');
+    return saved === 'true' ? 'pending' : 'login';
+  });
+
   const [vIdx, setVIdx] = useState(0);
-  const [ready, setReady] = useState(false);
-  const [hasRequest, setHasRequest] = useState(false);
-  const [activeTrip, setActiveTrip] = useState(false);
-  const [earnings, setEarnings] = useState(0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  // Deeply bind form data to states for database saving
+  const [formData, setFormData] = useState({
+    name: '',
+    email: auth.currentUser?.email || '',
+    phone: '',
+    dob: '',
+    licenseNum: '',
+    licenseExpiry: '',
+    experience: '3',
+    transmission: 'Automatic',
+    bankHolder: '',
+    bankRouting: '',
+    bankAccount: '',
+  });
+
+  // Sync auth email if it changes
+  useEffect(() => {
+    if (auth.currentUser?.email && !formData.email) {
+      setFormData(prev => ({ ...prev, email: auth.currentUser?.email || '' }));
+    }
+  }, [auth.currentUser]);
+
+  const handleInputChange = (field: string, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
 
   const vettingSteps = [
     { title: 'Personal Info', detail: 'Tell us who you are.' },
-    { title: 'Driver\'s License', detail: 'We verify every license.' },
+    { title: "Driver's License", detail: 'We verify every license.' },
     { title: 'Driving Experience', detail: 'What can you drive?' },
     { title: 'Background Check', detail: 'Required before activation.' },
     { title: 'Document Uploads', detail: 'Upload clear photos or scans.' },
@@ -26,37 +57,87 @@ export default function DriverFlow({ setView }: Props) {
     { title: 'Review & Submit', detail: 'Confirm everything looks right.' },
   ];
 
-  useEffect(() => {
-    let timer: any;
-    if (ready && !activeTrip && !hasRequest) {
-      timer = setTimeout(() => {
-        setHasRequest(true);
-      }, 3000);
+  // Simple validation to ensure nice flows
+  const isStepValid = () => {
+    if (vIdx === 0) {
+      return formData.name.trim().length > 0 && formData.phone.trim().length > 0;
     }
-    return () => clearTimeout(timer);
-  }, [ready, activeTrip, hasRequest]);
+    if (vIdx === 1) {
+      return formData.licenseNum.trim().length > 0 && formData.licenseExpiry.trim().length > 0;
+    }
+    if (vIdx === 2) {
+      return formData.experience.trim().length > 0;
+    }
+    if (vIdx === 5) {
+      return formData.bankHolder.trim().length > 0 && formData.bankAccount.trim().length > 0;
+    }
+    return true; // Simple optional/click steps or review
+  };
+
+  const handleNext = async () => {
+    if (vIdx === 6) {
+      // Final submission! Save to Firestore
+      setIsSubmitting(true);
+      setSubmitError(null);
+      try {
+        const payload = {
+          name: formData.name,
+          email: formData.email || auth.currentUser?.email || 'driver-candidate@wheez.com',
+          phone: formData.phone,
+          dob: formData.dob,
+          licenseNum: formData.licenseNum,
+          licenseExpiry: formData.licenseExpiry,
+          experience: Number(formData.experience) || 3,
+          transmission: formData.transmission,
+          bankHolder: formData.bankHolder,
+          bankRouting: formData.bankRouting,
+          bankAccount: formData.bankAccount,
+          status: 'pending',
+          createdAt: new Date().toISOString(),
+        };
+
+        await addDoc(collection(db, 'drivers'), payload);
+        
+        // Save submission state to persist across page reloads
+        localStorage.setItem('driverOnboardingSubmitted', 'true');
+        setStep('pending');
+      } catch (err: any) {
+        console.error("Failed to submit driver application:", err);
+        setSubmitError("Failed to submit. Please check your network and try again.");
+      } finally {
+        setIsSubmitting(false);
+      }
+    } else {
+      setVIdx(vIdx + 1);
+    }
+  };
 
   return (
     <div className="flex-1 w-full max-w-lg mx-auto flex flex-col relative px-4 sm:px-0 pt-6 pb-12 text-brand-text">
       
-      {/* Header Back Button */}
+      {/* Header Navigation Block */}
       <div className="flex items-center justify-between mb-8">
         <button 
           onClick={() => {
-            if (step === 'login') setView('landing');
-            else if (step === 'vetting' && vIdx > 0) setVIdx(vIdx - 1);
-            else if (step === 'dashboard') {
-              setReady(false);
-              setHasRequest(false);
-              setStep('login');
+            if (step === 'login') {
+              setView('landing');
+            } else if (step === 'vetting') {
+              if (vIdx > 0) {
+                setVIdx(vIdx - 1);
+              } else {
+                setStep('login');
+              }
+            } else if (step === 'pending') {
+              // Custom behavior: allow going back to landing from pending view
+              setView('landing');
             }
           }}
-          className="flex items-center justify-center w-10 h-10 rounded-full bg-black/5 border border-black/10 text-brand-text hover:bg-black/10 transition-colors"
+          className="flex items-center justify-center w-10 h-10 rounded-full bg-black/5 border border-black/10 text-brand-text hover:bg-black/10 active:scale-95 transition-all"
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
-        <div className="text-xs font-semibold tracking-widest text-brand-muted uppercase">
-          {step === 'login' ? 'Drive with Wheez' : step === 'dashboard' ? 'Driver Dashboard' : 'Onboarding'}
+        <div className="text-xs font-semibold tracking-widest text-[#986D43] uppercase font-mono">
+          {step === 'pending' ? 'ONBOARDING' : 'ONBOARDING'}
         </div>
         <div className="w-10"></div>
       </div>
@@ -65,287 +146,335 @@ export default function DriverFlow({ setView }: Props) {
         
         {/* LOGIN STEP */}
         {step === 'login' && (
-          <motion.div key="login" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="flex-1 flex flex-col items-center justify-center text-center mt-12">
+          <motion.div 
+            key="login" 
+            initial={{ opacity: 0, y: 15 }} 
+            animate={{ opacity: 1, y: 0 }} 
+            exit={{ opacity: 0, y: -15 }} 
+            className="flex-1 flex flex-col items-center justify-center text-center mt-6"
+          >
             <div className="w-16 h-16 rounded-full bg-brand-surface border border-black/10 flex items-center justify-center mb-6 shadow-sm text-brand-accent">
-              <Logo size={28} className="text-brand-accent animate-pulse" />
+              <Logo size={28} className="text-[#986D43] animate-pulse" />
             </div>
             <h2 className="text-3xl font-display font-medium mb-3">Drive with Wheez</h2>
-            <p className="text-brand-muted mb-10 max-w-sm">
-              Sign up, complete vetting, and start earning on your own schedule.
+            <p className="text-brand-muted mb-10 max-w-sm text-sm leading-relaxed">
+              Register as a premium chauffeur. Submit your information below to begin our elite security vetting process.
             </p>
             
             <button 
               onClick={() => setStep('vetting')}
-              className="w-full flex items-center justify-center gap-3 px-6 py-4 rounded-2xl bg-brand-surface border border-black/10 text-brand-text font-medium hover:scale-[1.02] active:scale-95 transition-all shadow-sm"
+              className="w-full flex items-center justify-center gap-3 px-6 py-4.5 rounded-2xl bg-[#191814] text-white font-medium hover:scale-[1.01] active:scale-95 transition-all shadow-md text-sm"
             >
-              <svg className="w-5 h-5" viewBox="0 0 24 24">
-                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
-                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
-              </svg>
-              Sign up with Google
+              Start Driver Application
             </button>
-            <p className="text-xs text-brand-muted mt-6">Vetting is required before your dashboard unlocks.</p>
+            <p className="text-xs text-brand-muted mt-6 font-mono tracking-tight">Full professional vetting is required before active driving.</p>
           </motion.div>
         )}
 
         {/* VETTING STEP */}
         {step === 'vetting' && (
-          <motion.div key="vetting" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="flex-1 flex flex-col">
+          <motion.div 
+            key="vetting" 
+            initial={{ opacity: 0, x: 15 }} 
+            animate={{ opacity: 1, x: 0 }} 
+            exit={{ opacity: 0, x: -15 }} 
+            className="flex-1 flex flex-col"
+          >
             <div className="mb-8">
-              <div className="flex justify-between items-center mb-2 text-xs font-semibold tracking-widest text-brand-muted">
+              <div className="flex justify-between items-center mb-2.5 text-[10px] uppercase font-mono tracking-widest text-brand-muted font-bold">
                 <span>STEP {vIdx + 1} OF 7</span>
-                <span className="text-brand-accent">{Math.round(((vIdx + 1) / 7) * 100)}%</span>
+                <span className="text-[#986D43]">{Math.round(((vIdx + 1) / 7) * 100)}%</span>
               </div>
-              <div className="h-1.5 w-full bg-black/5 rounded-full overflow-hidden">
+              <div className="h-1 w-full bg-black/[0.06] rounded-full overflow-hidden">
                 <motion.div 
-                  className="h-full bg-brand-accent"
+                  className="h-full bg-[#986D43]"
                   initial={{ width: `${(vIdx / 7) * 100}%` }}
                   animate={{ width: `${((vIdx + 1) / 7) * 100}%` }}
-                  transition={{ duration: 0.5, ease: 'easeInOut' }}
+                  transition={{ duration: 0.4 }}
                 />
               </div>
             </div>
 
-            <div className="flex items-center gap-2 mb-3 text-brand-accent">
-               <Logo size={18} className="text-brand-accent" />
-               <span className="font-mono text-[10px] tracking-widest uppercase font-semibold">Wheez Security Vetting</span>
+            <div className="flex items-center gap-2 mb-2 text-[#986D43]">
+               <ShieldCheck size={14} />
+               <span className="font-mono text-[9px] tracking-widest uppercase font-bold">Wheez Security Vetting</span>
             </div>
-            <h2 className="text-3xl font-display font-medium mb-1">{vettingSteps[vIdx].title}</h2>
-            <p className="text-brand-muted mb-8">{vettingSteps[vIdx].detail}</p>
+            <h2 className="text-2.5xl font-display font-medium mb-1.5 text-brand-text">{vettingSteps[vIdx].title}</h2>
+            <p className="text-brand-muted text-sm mb-8 leading-relaxed">{vettingSteps[vIdx].detail}</p>
 
             <div className="flex-1">
               {vIdx === 0 && (
                 <div className="space-y-4">
-                  <input type="text" placeholder="Full legal name" className="w-full bg-brand-surface border border-black/10 rounded-xl p-4 text-brand-text focus:border-brand-accent outline-none transition-colors" />
-                  <div className="grid grid-cols-2 gap-4">
-                    <input type="text" placeholder="Date of birth" className="w-full bg-brand-surface border border-black/10 rounded-xl p-4 text-brand-text focus:border-brand-accent outline-none" />
-                    <input type="text" placeholder="Phone" className="w-full bg-brand-surface border border-black/10 rounded-xl p-4 text-brand-text focus:border-brand-accent outline-none" />
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[10px] font-mono font-bold uppercase tracking-wider text-brand-muted">Full Legal Name</label>
+                    <input 
+                      type="text" 
+                      placeholder="e.g. Victor Anichebe" 
+                      value={formData.name}
+                      onChange={(e) => handleInputChange('name', e.target.value)}
+                      className="w-full bg-brand-surface border border-black/10 rounded-xl p-4 text-brand-text focus:border-brand-accent outline-none transition-colors" 
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[10px] font-mono font-bold uppercase tracking-wider text-brand-muted">Email Address (Optional if logged out)</label>
+                    <input 
+                      type="email" 
+                      placeholder="e.g. victor@gmail.com" 
+                      value={formData.email}
+                      onChange={(e) => handleInputChange('email', e.target.value)}
+                      className="w-full bg-brand-surface border border-black/10 rounded-xl p-4 text-brand-text focus:border-brand-accent outline-none transition-colors" 
+                    />
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[10px] font-mono font-bold uppercase tracking-wider text-brand-muted">Date of Birth</label>
+                      <input 
+                        type="text" 
+                        placeholder="DD/MM/YYYY" 
+                        value={formData.dob}
+                        onChange={(e) => handleInputChange('dob', e.target.value)}
+                        className="w-full bg-brand-surface border border-black/10 rounded-xl p-4 text-brand-text focus:border-brand-accent outline-none" 
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[10px] font-mono font-bold uppercase tracking-wider text-brand-muted">Phone Number</label>
+                      <input 
+                        type="tel" 
+                        placeholder="e.g. +234 812 3456" 
+                        value={formData.phone}
+                        onChange={(e) => handleInputChange('phone', e.target.value)}
+                        className="w-full bg-brand-surface border border-black/10 rounded-xl p-4 text-brand-text focus:border-brand-accent outline-none" 
+                      />
+                    </div>
                   </div>
                 </div>
               )}
+
               {vIdx === 1 && (
                 <div className="space-y-4">
-                  <input type="text" placeholder="License number" className="w-full bg-brand-surface border border-black/10 rounded-xl p-4 text-brand-text focus:border-brand-accent outline-none" />
-                  <input type="text" placeholder="Expiry date" className="w-full bg-brand-surface border border-black/10 rounded-xl p-4 text-brand-text focus:border-brand-accent outline-none" />
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[10px] font-mono font-bold uppercase tracking-wider text-brand-muted">Driver's License Number</label>
+                    <input 
+                      type="text" 
+                      placeholder="e.g. DL-9843727" 
+                      value={formData.licenseNum}
+                      onChange={(e) => handleInputChange('licenseNum', e.target.value)}
+                      className="w-full bg-brand-surface border border-black/10 rounded-xl p-4 text-brand-text focus:border-brand-accent outline-none" 
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[10px] font-mono font-bold uppercase tracking-wider text-brand-muted">Expiry Date</label>
+                    <input 
+                      type="text" 
+                      placeholder="MM/YYYY" 
+                      value={formData.licenseExpiry}
+                      onChange={(e) => handleInputChange('licenseExpiry', e.target.value)}
+                      className="w-full bg-brand-surface border border-black/10 rounded-xl p-4 text-brand-text focus:border-brand-accent outline-none" 
+                    />
+                  </div>
                 </div>
               )}
+
               {vIdx === 2 && (
                 <div className="space-y-6">
                   <div>
-                    <label className="text-xs uppercase tracking-widest text-brand-muted mb-3 flex">Years of Experience</label>
-                    <input type="number" placeholder="e.g. 5" className="w-full bg-brand-surface border border-black/10 rounded-xl p-4 text-brand-text focus:border-brand-accent outline-none" />
+                    <label className="text-xs uppercase tracking-widest text-brand-muted mb-3 flex">Years of Professional Experience</label>
+                    <input 
+                      type="number" 
+                      min="0"
+                      max="50"
+                      value={formData.experience}
+                      onChange={(e) => handleInputChange('experience', e.target.value)}
+                      className="w-full bg-brand-surface border border-black/10 rounded-xl p-4 text-brand-text focus:border-brand-accent outline-none" 
+                    />
                   </div>
                   <div>
-                    <label className="text-xs uppercase tracking-widest text-brand-muted mb-3 flex">Comfortable Driving</label>
+                    <label className="text-xs uppercase tracking-widest text-brand-muted mb-3 flex">Preferred Transmission Comfort</label>
                     <div className="flex gap-2">
-                       <button className="px-5 py-3 rounded-xl bg-brand-accent/20 border border-brand-accent text-brand-text font-medium">Automatic</button>
-                       <button className="px-5 py-3 rounded-xl bg-black/5 border border-black/10 text-brand-muted">Manual</button>
+                      <button 
+                        type="button"
+                        onClick={() => handleInputChange('transmission', 'Automatic')}
+                        className={`flex-1 py-3.5 rounded-xl border font-medium text-sm transition-all ${formData.transmission === 'Automatic' ? 'bg-[#986D43]/15 border-[#986D43] text-brand-text font-bold' : 'bg-transparent border-black/10 text-brand-muted hover:bg-black/[0.02]'}`}
+                      >
+                        Automatic Only
+                      </button>
+                      <button 
+                        type="button"
+                        onClick={() => handleInputChange('transmission', 'Manual & Automatic')}
+                        className={`flex-1 py-3.5 rounded-xl border font-medium text-sm transition-all ${formData.transmission === 'Manual & Automatic' ? 'bg-[#986D43]/15 border-[#986D43] text-brand-text font-bold' : 'bg-transparent border-black/10 text-brand-muted hover:bg-black/[0.02]'}`}
+                      >
+                        Manual & Automatic
+                      </button>
                     </div>
                   </div>
                 </div>
               )}
+
               {vIdx === 3 && (
-                <div className="bg-brand-surface border border-black/10 rounded-2xl p-6 shadow-sm">
+                <div className="bg-brand-surface border border-black/10 rounded-2xl p-6 shadow-xs">
                   <p className="text-sm text-brand-muted leading-relaxed mb-6">
-                    Wheez runs a criminal and motor-vehicle background check through a verified partner. Your data is encrypted and used only for vetting.
+                    Wheez performs a background and professional conduct verification through certified security agencies. All candidate data remains private and highly encrypted.
                   </p>
-                  <label className="flex items-start gap-4 p-4 rounded-xl border border-brand-accent/50 bg-brand-accent/10 cursor-pointer">
-                    <div className="w-6 h-6 rounded bg-brand-accent flex items-center justify-center flex-shrink-0 mt-0.5">
-                      <CheckCircle2 className="w-4 h-4 text-white" />
+                  <label className="flex items-start gap-4 p-4 rounded-xl border border-[#986D43]/30 bg-[#986D43]/5 cursor-pointer select-none">
+                    <div className="w-5.5 h-5.5 rounded bg-[#986D43] flex items-center justify-center flex-shrink-0 mt-0.5 text-white">
+                      <CheckCircle2 size={15} />
                     </div>
-                    <span className="text-sm">I consent to a background and driving-record check.</span>
+                    <span className="text-xs sm:text-sm text-brand-text font-medium leading-normal">
+                      I consent to completing background checks for Wheez Chauffeur network.
+                    </span>
                   </label>
                 </div>
               )}
+
               {vIdx === 4 && (
                 <div className="space-y-4">
-                  <div className="border border-dashed border-black/20 rounded-2xl p-6 flex flex-col items-center justify-center text-center bg-black/5 cursor-pointer hover:bg-black/10 transition-colors shadow-inner">
-                    <UploadCloud className="w-8 h-8 text-brand-muted mb-3" />
-                    <span className="text-sm font-medium mb-1">Upload ID Document</span>
-                    <span className="text-xs text-brand-muted">JPEG, PNG, or PDF</span>
+                  <div className="border border-dashed border-black/20 rounded-2xl p-8 flex flex-col items-center justify-center text-center bg-black/5 hover:bg-black/[0.08] transition-colors cursor-pointer shadow-inner">
+                    <UploadCloud className="w-9 h-9 text-[#986D43] mb-3 opacity-80" />
+                    <span className="text-sm font-medium mb-1">Upload ID & Driver Credentials</span>
+                    <span className="text-xs text-brand-muted">JPEG, PNG or PDF format scans</span>
+                  </div>
+                  <div className="p-3 bg-green-500/10 border border-green-500/15 rounded-xl flex items-center justify-center gap-2 text-xs text-green-700 font-medium">
+                    <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
+                    Ready for submit (Simulated OK)
                   </div>
                 </div>
               )}
+
               {vIdx === 5 && (
                 <div className="space-y-4">
-                  <input type="text" placeholder="Account holder name" className="w-full bg-brand-surface border border-black/10 rounded-xl p-4 text-brand-text focus:border-brand-accent outline-none shadow-sm" />
-                  <input type="text" placeholder="Routing number" className="w-full bg-brand-surface border border-black/10 rounded-xl p-4 text-brand-text focus:border-brand-accent outline-none shadow-sm" />
-                  <input type="text" placeholder="Account number" className="w-full bg-brand-surface border border-black/10 rounded-xl p-4 text-brand-text focus:border-brand-accent outline-none shadow-sm" />
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[10px] font-mono font-bold uppercase tracking-wider text-brand-muted">Payout Account Holder Name</label>
+                    <input 
+                      type="text" 
+                      placeholder="e.g. Victor Anichebe" 
+                      value={formData.bankHolder ? formData.bankHolder : formData.name}
+                      onChange={(e) => handleInputChange('bankHolder', e.target.value)}
+                      className="w-full bg-brand-surface border border-black/10 rounded-xl p-4 text-brand-text focus:border-brand-accent outline-none shadow-xs" 
+                    />
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[10px] font-mono font-bold uppercase tracking-wider text-brand-muted">Bank Routing Code / Bank Name</label>
+                      <input 
+                        type="text" 
+                        placeholder="e.g. GTBank / Access" 
+                        value={formData.bankRouting}
+                        onChange={(e) => handleInputChange('bankRouting', e.target.value)}
+                        className="w-full bg-brand-surface border border-black/10 rounded-xl p-4 text-brand-text focus:border-brand-accent outline-none shadow-xs" 
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[10px] font-mono font-bold uppercase tracking-wider text-brand-muted">Bank Account Number</label>
+                      <input 
+                        type="text" 
+                        placeholder="e.g. 0122484392" 
+                        value={formData.bankAccount}
+                        onChange={(e) => handleInputChange('bankAccount', e.target.value)}
+                        className="w-full bg-brand-surface border border-black/10 rounded-xl p-4 text-brand-text focus:border-brand-accent outline-none shadow-xs" 
+                      />
+                    </div>
+                  </div>
                 </div>
               )}
+
               {vIdx === 6 && (
-                <div className="bg-brand-surface border border-black/10 rounded-2xl p-6 space-y-4 shadow-sm">
-                  <div className="flex justify-between border-b border-black/5 pb-4">
-                    <span className="text-brand-muted text-sm">Status</span>
-                    <span className="text-brand-accent text-sm font-medium">Ready to submit</span>
+                <div className="bg-brand-surface border border-black/10 rounded-2xl p-6 space-y-4 shadow-sm text-sm">
+                  <div className="flex justify-between border-b border-black/[0.04] pb-3 text-xs uppercase font-mono tracking-widest text-brand-muted font-bold">
+                    <span>Vetting Step</span>
+                    <span>Candidate Detail</span>
                   </div>
-                  <div className="flex justify-between pt-2">
-                    <span className="text-brand-muted text-sm">Background Check</span>
-                    <span className="text-brand-text text-sm">Consented</span>
+                  <div className="flex justify-between">
+                    <span className="text-brand-muted">Full Name:</span>
+                    <span className="font-semibold text-brand-text">{formData.name}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-brand-muted">Email:</span>
+                    <span className="font-semibold text-brand-text">{formData.email || 'None Provided'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-brand-muted">Phone Number:</span>
+                    <span className="font-semibold text-brand-text">{formData.phone}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-brand-muted">License Exp:</span>
+                    <span className="font-semibold text-brand-text">{formData.licenseExpiry}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-brand-muted">Experience:</span>
+                    <span className="font-semibold text-[#986D43]">{formData.experience} Years</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-brand-muted">Payout Account:</span>
+                    <span className="font-mono text-xs">{formData.bankAccount || 'Not set'}</span>
                   </div>
                 </div>
               )}
             </div>
 
+            {submitError && (
+              <p className="mt-4 text-xs text-red-600 font-semibold">{submitError}</p>
+            )}
+
             <button 
-              onClick={() => {
-                if (vIdx === 6) setStep('pending');
-                else setVIdx(vIdx + 1);
-              }}
-              className="mt-8 w-full py-5 rounded-2xl bg-brand-text text-brand-base font-semibold text-lg hover:scale-[1.02] active:scale-95 transition-all shadow-md"
+              type="button"
+              onClick={handleNext}
+              disabled={isSubmitting || !isStepValid()}
+              className={`mt-8 w-full py-5 rounded-2xl font-semibold text-lg hover:scale-[1.01] active:scale-95 transition-all shadow-md flex items-center justify-center gap-2 ${isStepValid() ? 'bg-[#191814] text-white hover:bg-black cursor-pointer' : 'bg-black/10 text-brand-muted cursor-not-allowed'}`}
             >
-              {vIdx === 6 ? 'Submit Application' : 'Continue'}
+              {isSubmitting ? 'Submitting Application...' : vIdx === 6 ? 'Submit Application' : 'Continue'}
             </button>
           </motion.div>
         )}
 
-        {/* PENDING STEP */}
+        {/* PENDING STEP - CUSTOM RETUNED MATCHING IMAGE PRECISELY */}
         {step === 'pending' && (
-          <motion.div key="pending" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="flex-1 flex flex-col items-center justify-center text-center">
-             <div className="relative w-24 h-24 mb-8 flex items-center justify-center">
-               <div className="absolute inset-0 rounded-full border-2 border-brand-accent/20 border-t-brand-accent animate-spin text-brand-accent"></div>
-               <Logo size={28} className="text-brand-accent" />
-             </div>
-             <div className="inline-block px-3 py-1 rounded-full bg-brand-accent/10 text-brand-accent text-xs font-semibold tracking-widest mb-4">PENDING REVIEW</div>
-             <h2 className="text-3xl font-display font-medium mb-3">Application Submitted</h2>
-             <p className="text-brand-muted mb-12 max-w-sm">We are reviewing your details. You will be notified the moment you are approved.</p>
-             
-             {/* Developer Shortcut */}
-             <button 
-                onClick={() => setStep('dashboard')}
-                className="w-full py-4 rounded-2xl bg-black/5 border border-black/10 text-brand-muted hover:text-brand-text hover:bg-black/10 transition-colors flex items-center justify-center gap-2"
-             >
-               Simulate Approval <ArrowLeft className="w-4 h-4 rotate-180" />
-             </button>
-             <p className="text-[10px] uppercase tracking-widest text-brand-muted mt-4 opacity-70">Demo Shortcut</p>
-          </motion.div>
-        )}
-
-        {/* DASHBOARD STEP */}
-        {step === 'dashboard' && (
-          <motion.div key="dashboard" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col flex-1">
-             <div className="flex justify-between items-end mb-8">
-               <div>
-                 <div className="text-xs uppercase tracking-widest text-brand-muted mb-1">Welcome Back</div>
-                 <h2 className="text-3xl font-display font-medium">Daniel Vega</h2>
+          <motion.div 
+            key="pending" 
+            initial={{ opacity: 0, scale: 0.98 }} 
+            animate={{ opacity: 1, scale: 1 }} 
+            className="flex-1 flex flex-col items-center justify-center text-center px-4"
+          >
+             {/* Dynamic Custom Rotating Wheel / Circular Branding Frame */}
+             <div className="relative w-32 h-32 mb-10 flex items-center justify-center">
+               {/* Accent circle light track */}
+               <div className="absolute inset-0 rounded-full border border-[#986D43]/20"></div>
+               {/* Moving Elegant luxury partial border stroke for classy spinning feedback */}
+               <div className="absolute inset-0 rounded-full border border-transparent border-t-[#986D43] border-l-[#986D43]/40 animate-spin" style={{ animationDuration: '3s' }}></div>
+               
+               {/* Premium gold "W" Logo representing luxury Wheez */}
+               <div className="w-24 h-24 rounded-full bg-brand-surface border border-[#986D43]/10 shadow-xs flex items-center justify-center text-brand-text">
+                  <svg className="w-10 h-10 text-[#986D43]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 4l4 16 4-10 4 10 4-16" />
+                  </svg>
                </div>
-               <div className="w-12 h-12 rounded-full bg-brand-surface shadow-sm border border-black/5 flex items-center justify-center text-lg font-display font-medium">DV</div>
              </div>
 
-             {/* Main Toggle */}
-             <div 
-               onClick={() => {
-                  setReady(!ready);
-                  setHasRequest(false);
-               }}
-               className={`relative overflow-hidden cursor-pointer rounded-3xl p-6 mb-6 transition-all duration-500 border ${ready ? 'bg-brand-accent border-brand-accent shadow-md text-white' : 'bg-brand-surface border-black/5 shadow-sm text-brand-text'}`}
+             {/* Onboarding Pill */}
+             <div className="inline-block px-4 py-1.5 rounded-full bg-[#986D43]/10 text-[#986D43] text-xs font-semibold tracking-widest uppercase mb-5">
+               PENDING REVIEW
+             </div>
+
+             {/* High Display Serif Title */}
+             <h2 className="text-3.5xl font-display font-medium tracking-tight mb-4 text-brand-text">
+               Application Submitted
+             </h2>
+
+             {/* Classy description matching user screenshot */}
+             <p className="text-brand-muted text-[15px] sm:text-base leading-relaxed max-w-sm mb-12">
+               We are reviewing your details. You will be notified the moment you are approved.
+             </p>
+
+             {/* Simple back button */}
+             <button
+               type="button"
+               onClick={() => setView('landing')}
+               className="px-8 py-3.5 border border-[#191814]/10 rounded-full text-xs font-semibold uppercase tracking-wider text-brand-muted hover:text-brand-text hover:bg-black/5 transition-all active:scale-95"
              >
-                <div className="flex justify-between items-center relative z-10">
-                   <div>
-                     <h3 className="text-xl font-display font-medium mb-1 transition-colors">
-                       {ready ? "You're Ready to Work" : "Go Ready for Work"}
-                     </h3>
-                     <p className={`text-sm transition-colors ${ready ? 'text-white/80' : 'text-brand-muted'}`}>
-                       {ready ? "Visible to nearby customers" : "Hidden — flip on to get trips"}
-                     </p>
-                   </div>
-                   <div className={`w-14 h-8 rounded-full p-1 transition-colors duration-500 flex items-center ${ready ? 'bg-brand-text justify-end' : 'bg-black/10 justify-start'}`}>
-                      <motion.div layout className="w-6 h-6 rounded-full bg-brand-surface shadow-sm"></motion.div>
-                   </div>
-                </div>
-             </div>
-
-             {/* UI States based on 'ready' and incoming requests */}
-             <div className="flex-1 flex flex-col pt-2 relative">
-               <AnimatePresence mode="popLayout">
-                 {!ready && (
-                   <motion.div key="offline" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex-1 flex flex-col">
-                      <div className="grid grid-cols-2 gap-4 mb-4">
-                        <div className="bg-brand-surface border border-black/5 shadow-sm rounded-2xl p-5">
-                           <div className="text-[10px] uppercase tracking-widest text-brand-muted mb-2">Today's Earnings</div>
-                           <div className="text-2xl font-display font-medium text-brand-accent">${earnings.toFixed(2)}</div>
-                        </div>
-                        <div className="bg-brand-surface border border-black/5 shadow-sm rounded-2xl p-5">
-                           <div className="text-[10px] uppercase tracking-widest text-brand-muted mb-2">Rating</div>
-                           <div className="text-2xl font-display font-medium flex items-center gap-2">4.96 <Star className="w-4 h-4 text-brand-accent fill-brand-accent" /></div>
-                        </div>
-                      </div>
-                      <div className="bg-brand-surface border border-black/5 shadow-sm rounded-2xl p-5 flex items-center justify-between">
-                         <div className="flex items-center gap-3">
-                           <div className="w-10 h-10 rounded-xl bg-brand-accent/20 flex items-center justify-center"><DollarSign className="w-5 h-5 text-brand-accent" /></div>
-                           <div>
-                             <div className="text-sm font-medium">Next Payout</div>
-                             <div className="text-xs text-brand-muted">•••• 8842</div>
-                           </div>
-                         </div>
-                         <div className="text-sm font-medium text-brand-accent">Friday</div>
-                      </div>
-                   </motion.div>
-                 )}
-
-                 {ready && !hasRequest && !activeTrip && (
-                   <motion.div key="searching" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="flex-1 bg-brand-base rounded-3xl p-8 flex flex-col items-center justify-center text-center">
-                     <div className="relative w-24 h-24 flex items-center justify-center mb-6">
-                        <motion.div animate={{ scale: [1, 2], opacity: [0.5, 0] }} transition={{ duration: 2, repeat: Infinity, ease: "easeOut" }} className="absolute inset-0 rounded-full border-2 border-brand-accent"></motion.div>
-                        <motion.div animate={{ scale: [1, 1.5], opacity: [0.5, 0] }} transition={{ duration: 2, repeat: Infinity, ease: "easeOut", delay: 1 }} className="absolute inset-0 rounded-full border-2 border-brand-accent"></motion.div>
-                        <div className="w-4 h-4 rounded-full bg-brand-accent shadow-[0_0_15px_rgba(182,255,60,1)]"></div>
-                     </div>
-                     <h3 className="text-lg font-medium mb-1">You're live</h3>
-                     <p className="text-sm text-brand-muted">Listening for nearby requests...</p>
-                   </motion.div>
-                 )}
-
-                 {ready && hasRequest && !activeTrip && (
-                   <motion.div key="request" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-brand-surface border border-brand-accent/30 rounded-3xl p-6 shadow-xl">
-                     <div className="flex justify-between items-start mb-6">
-                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-accent/10 text-brand-accent text-xs font-semibold tracking-widest uppercase">
-                          <span className="w-1.5 h-1.5 rounded-full bg-brand-accent animate-pulse"></span> New Request
-                        </div>
-                        <div className="text-3xl font-display font-medium">$42.50</div>
-                     </div>
-                     <div className="flex items-center gap-4 mb-6 pb-6 border-b border-black/5">
-                       <div className="w-12 h-12 rounded-full bg-brand-base flex items-center justify-center text-lg font-display">A</div>
-                       <div>
-                         <div className="font-medium text-lg">Alex</div>
-                         <div className="text-sm text-brand-muted mt-1">Airport Run · 22 min · Audi A4</div>
-                       </div>
-                     </div>
-                     <div className="flex gap-3">
-                       <button onClick={() => setHasRequest(false)} className="flex-1 py-4 rounded-xl bg-brand-base border border-black/5 font-medium hover:bg-black/5 transition-colors">Decline</button>
-                       <button onClick={() => { setHasRequest(false); setActiveTrip(true); }} className="flex-[2] py-4 rounded-xl bg-brand-text text-brand-base font-semibold hover:scale-[1.02] transition-colors shadow-md">Accept Trip</button>
-                     </div>
-                   </motion.div>
-                 )}
-
-                 {activeTrip && (
-                   <motion.div key="active" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-brand-surface border border-brand-accent shadow-xl rounded-3xl overflow-hidden flex flex-col flex-1">
-                     <div className="h-48 bg-grid-pattern relative opacity-50 flex items-center justify-center border-b border-black/5">
-                        <motion.div animate={{ rotate: 360 }} transition={{ duration: 20, repeat: Infinity, ease: 'linear' }} className="w-32 h-32 rounded-full border border-dashed border-brand-accent flex items-center justify-center">
-                          <Navigation className="w-8 h-8 text-brand-accent fill-brand-accent/20" />
-                        </motion.div>
-                     </div>
-                     <div className="p-6 flex flex-col flex-1">
-                        <div className="inline-flex items-center gap-2 text-brand-accent text-xs font-semibold tracking-widest uppercase mb-2">
-                          <span className="w-1.5 h-1.5 rounded-full bg-brand-accent animate-pulse"></span> Trip in Progress
-                        </div>
-                        <h3 className="text-xl font-medium mb-1">Alex → JFK Terminal 4</h3>
-                        <p className="text-brand-muted text-sm mb-auto">Driving the Audi A4</p>
-                        
-                        <button 
-                          onClick={() => { setActiveTrip(false); setEarnings(e => e + 42.50); }}
-                          className="w-full py-5 rounded-2xl bg-brand-text text-brand-base font-semibold text-lg hover:scale-[1.02] transition-colors shadow-md mt-8"
-                        >
-                          Complete Trip (+$42.50)
-                        </button>
-                     </div>
-                   </motion.div>
-                 )}
-               </AnimatePresence>
-             </div>
+               Return to Landing Page
+             </button>
           </motion.div>
         )}
+
       </AnimatePresence>
     </div>
   );

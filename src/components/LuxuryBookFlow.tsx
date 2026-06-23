@@ -1,4 +1,7 @@
 import React, { useState, useMemo } from 'react';
+import { db, auth } from '../lib/firebase';
+import { collection, addDoc } from 'firebase/firestore';
+import PaystackModal from './PaystackModal';
 import { motion } from 'motion/react';
 import { AppState, CarDetail } from '../types';
 import { ArrowLeft, Check, Calendar, Clock, MapPin, User, Phone, FileText, Compass, HelpCircle, Star, Shield, Car, Heart } from 'lucide-react';
@@ -25,6 +28,7 @@ export default function LuxuryBookFlow({ setView, selectedCar }: Props) {
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [notes, setNotes] = useState('');
+  const [isPaystackOpen, setIsPaystackOpen] = useState(false);
   
   // Extra Amenities
   const [englishDriver, setEnglishDriver] = useState(false);
@@ -63,12 +67,37 @@ export default function LuxuryBookFlow({ setView, selectedCar }: Props) {
       alert('Please fill out all required fields marked with an asterisk (*).');
       return;
     }
-    
+    setIsPaystackOpen(true);
+  };
+
+  const handlePaystackSuccess = async () => {
     setIsSubmitting(true);
-    setTimeout(() => {
-      setIsSubmitting(false);
+    try {
+      const tripData = {
+        category: 'Standby (' + selectedCar.name + ')',
+        date: pickupDate,
+        time: pickupTime,
+        pickup: pickupAddr,
+        destination: destinationAddr || 'Chauffeur Standby Direct',
+        userId: auth.currentUser?.uid || 'auth-unidentified-luxury',
+        assignedDriverId: '',
+        status: 'pending',
+        totalCost: priceStats.total,
+        duration: days + ' Days Standby',
+        clientName: fullName,
+        clientPhone: phone,
+        notes: notes,
+        createdAt: new Date().toISOString(),
+      };
+      
+      await addDoc(collection(db, 'trips'), tripData);
       setIsBooked(true);
-    }, 1500);
+    } catch (err) {
+      console.error("Error creating luxury booking:", err);
+      alert('Booking failed to register. Please check your connection.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // Assign a professional vetted chauffeur profile mock for the ticket
@@ -537,6 +566,15 @@ export default function LuxuryBookFlow({ setView, selectedCar }: Props) {
         </div>
 
       </div>
+
+      <PaystackModal 
+        isOpen={isPaystackOpen}
+        onClose={() => setIsPaystackOpen(false)}
+        onSuccess={handlePaystackSuccess}
+        amount={priceStats.total}
+        email={auth.currentUser?.email || 'luxury.client@wheez.com'}
+        metadata={`Standby (${selectedCar.name})`}
+      />
     </div>
   );
 }

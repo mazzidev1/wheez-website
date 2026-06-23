@@ -1,0 +1,115 @@
+{
+  "entities": {
+    "Trip": {
+      "title": "Trip",
+      "description": "A trip booked by a user",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "User ID of the passenger"
+        },
+        "date": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "distance": {
+          "type": "string"
+        },
+        "totalCost": {
+          "type": "number"
+        },
+        "category": {
+           "type": "string"
+        },
+        "pickup": {
+            "type": "string"
+        },
+        "destination": {
+            "type": "string"
+        },
+        "duration": {
+            "type": "string"
+        },
+        "status": {
+            "type": "string"
+        },
+        "assignedDriverId": {
+            "type": "string"
+        }
+      },
+      "required": ["userId", "date", "distance", "totalCost"]
+    },
+    "Driver": {
+      "title": "Driver",
+      "description": "A driver registered in the fleet",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "email": {
+          "type": "string"
+        },
+        "phone": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["active", "inactive", "on_trip"]
+        },
+        "rating": {
+          "type": "number"
+        },
+        "vehicleId": {
+          "type": "string"
+        }
+      },
+      "required": ["name", "email", "phone", "status"]
+    },
+    "Vehicle": {
+      "title": "Vehicle",
+      "description": "A vehicle inside the fleet",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "price": {
+          "type": "number"
+        },
+        "plateNumber": {
+          "type": "string"
+        },
+        "category": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["available", "maintenance", "rented"]
+        }
+      },
+      "required": ["name", "price", "plateNumber", "category", "status"]
+    }
+  },
+  "firestore": {
+    "trips/{tripId}": {
+      "schema": {
+        "$ref": "#/entities/Trip"
+      },
+      "description": "The trips for each user."
+    },
+    "drivers/{driverId}": {
+      "schema": {
+        "$ref": "#/entities/Driver"
+      },
+      "description": "All professional drivers."
+    },
+    "fleet/{vehicleId}": {
+      "schema": {
+        "$ref": "#/entities/Vehicle"
+      },
+      "description": "All vehicles in the company's fleet."
+    }
+  }
+}

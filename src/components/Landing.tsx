@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { motion } from 'motion/react';
 import { AppState, RideParams, ContentPageId } from '../types';
 import { Plus, Search, Navigation, ShieldCheck, MapPin, CreditCard, Star } from 'lucide-react';
+import { User } from 'firebase/auth';
 import blackDriver1 from '../assets/images/black_driver_1_1782130997869.jpg';
 import blackDriver2 from '../assets/images/black_driver_2_1782131017319.jpg';
 import blackDriver3 from '../assets/images/black_driver_3_1782131034891.jpg';
@@ -28,9 +29,11 @@ interface Props {
   navigateToPage?: (pageId: ContentPageId) => void;
   onBookCar?: (carId: string) => void;
   onLogin?: () => void;
+  user?: User | null;
+  onAdmin?: () => void;
 }
 
-export default function Landing({ setView, onStartRide, navigateToPage, onBookCar, onLogin }: Props) {
+export default function Landing({ setView, onStartRide, navigateToPage, onBookCar, onLogin, user, onAdmin }: Props) {
   const [duration, setDuration] = useState('6 Hours');
   const [pickup, setPickup] = useState('');
   const [category, setCategory] = useState('Airport');
@@ -48,7 +51,7 @@ export default function Landing({ setView, onStartRide, navigateToPage, onBookCa
       
       {/* NAVBAR */}
       <nav className="relative z-20 flex items-center justify-between px-6 md:px-12 py-6 w-full max-w-[1440px] mx-auto">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-all" onClick={() => setView('landing')}>
           <Logo size={24} className="text-brand-accent hover:rotate-12 transition-transform duration-300" />
           <span className="font-sans text-xl tracking-[0.15em] uppercase font-medium">Wheez</span>
         </div>
@@ -59,16 +62,28 @@ export default function Landing({ setView, onStartRide, navigateToPage, onBookCa
           <span className="hover:text-brand-text transition-colors cursor-pointer">Stories</span>
         </div>
 
-        <div className="flex items-center gap-6 text-[11px] font-mono tracking-widest flex-shrink-0">
-          <span className="hidden sm:block text-brand-muted uppercase">USD · EN</span>
+        <div className="flex items-center gap-4 text-[11px] font-mono tracking-widest flex-shrink-0">
+          <span className="hidden lg:block text-brand-muted uppercase">USD · EN</span>
+          {onAdmin && (
+            <button 
+              onClick={onAdmin}
+              className="bg-brand-surface text-[#191814] border border-black/10 px-6 py-2.5 rounded-full font-sans text-sm font-semibold hover:bg-black/5 transition-all text-center"
+            >
+              Admin Panel
+            </button>
+          )}
           <button 
             onClick={() => {
-              if (onLogin) onLogin();
-              else setView('customer');
+              if (user) {
+                setView('dashboard');
+              } else {
+                if (onLogin) onLogin();
+                else setView('customer');
+              }
             }}
-            className="bg-[#191814] text-white px-6 py-2.5 rounded-none font-sans text-sm font-medium hover:bg-black transition-colors"
+            className="bg-[#191814] text-white px-6 py-2.5 rounded-full font-sans text-sm font-medium hover:bg-black transition-colors"
           >
-            Log in
+            {user ? 'Dashboard' : 'Log in'}
           </button>
         </div>
       </nav>
@@ -112,10 +127,10 @@ export default function Landing({ setView, onStartRide, navigateToPage, onBookCa
                </div>
             </div>
 
-            <div className="flex flex-col md:flex-row items-center justify-between relative w-full">
-              <div className="flex-1 w-full flex items-center px-6 md:px-8 border-b md:border-b-0 md:border-r border-black/5 focus-within:bg-black/[0.02] transition-colors rounded-none h-[5rem] lg:h-[5.5rem] hover:bg-black/[0.02] cursor-text">
-                <div className="flex flex-col text-left w-full h-full justify-center">
-                  <label className="text-[10px] md:text-[11px] font-mono text-brand-muted uppercase tracking-widest mb-1">Pickup</label>
+            <div className="flex flex-col md:flex-row items-center justify-between relative w-full gap-3 md:gap-0">
+              <div className="flex-1 w-full flex items-center px-6 md:px-8 py-4 md:py-0 border-b border-black/5 md:border-b-0 md:border-r focus-within:bg-black/[0.02] transition-colors rounded-none min-h-[5.5rem] md:h-[5rem] lg:h-[5.5rem] hover:bg-black/[0.02] cursor-text">
+                <div className="flex flex-col text-left w-full h-full justify-center gap-1">
+                  <label className="text-[10px] md:text-[11px] font-mono text-brand-muted uppercase tracking-widest">Pickup</label>
                   <input 
                     type="text" 
                     value={pickup}
@@ -126,9 +141,9 @@ export default function Landing({ setView, onStartRide, navigateToPage, onBookCa
                 </div>
               </div>
             
-              <div className="flex-1 w-full flex items-center px-6 md:px-8 border-b md:border-b-0 md:border-r border-black/5 focus-within:bg-black/[0.02] transition-colors h-[5rem] lg:h-[5.5rem] hover:bg-black/[0.02] cursor-text">
-                <div className="flex flex-col text-left w-full h-full justify-center">
-                  <label className="text-[10px] md:text-[11px] font-mono text-brand-muted uppercase tracking-widest mb-1">Duration</label>
+              <div className="flex-1 w-full flex items-center px-6 md:px-8 py-4 md:py-0 border-b border-black/5 md:border-b-0 md:border-r focus-within:bg-black/[0.02] transition-colors rounded-none min-h-[5.5rem] md:h-[5rem] lg:h-[5.5rem] hover:bg-black/[0.02] cursor-text">
+                <div className="flex flex-col text-left w-full h-full justify-center gap-1">
+                  <label className="text-[10px] md:text-[11px] font-mono text-brand-muted uppercase tracking-widest">Duration</label>
                   <CustomSelect 
                     value={duration}
                     onChange={setDuration}
@@ -142,9 +157,9 @@ export default function Landing({ setView, onStartRide, navigateToPage, onBookCa
                 </div>
               </div>
 
-              <div className="flex-1 w-full flex items-center px-6 md:px-8 focus-within:bg-black/[0.02] transition-colors h-[5rem] lg:h-[5.5rem] hover:bg-black/[0.02] cursor-pointer">
-                <div className="flex flex-col text-left w-full h-full justify-center">
-                  <label className="text-[10px] md:text-[11px] font-mono text-brand-muted uppercase tracking-widest mb-1">Category</label>
+              <div className="flex-1 w-full flex items-center px-6 md:px-8 py-4 md:py-0 focus-within:bg-black/[0.02] transition-colors rounded-none min-h-[5.5rem] md:h-[5rem] lg:h-[5.5rem] hover:bg-black/[0.02] cursor-pointer">
+                <div className="flex flex-col text-left w-full h-full justify-center gap-1">
+                  <label className="text-[10px] md:text-[11px] font-mono text-brand-muted uppercase tracking-widest">Category</label>
                   <CustomSelect 
                     value={category}
                     onChange={setCategory}
@@ -162,7 +177,7 @@ export default function Landing({ setView, onStartRide, navigateToPage, onBookCa
 
               <button 
                 onClick={handleSearch}
-                className="w-[calc(100%-2rem)] mx-4 md:mx-0 md:w-auto h-[4rem] lg:h-[4.5rem] px-8 md:px-10 rounded-none bg-[#1e2311] text-[#d4ff63] text-lg flex items-center justify-center hover:scale-105 active:scale-95 transition-all shadow-md md:mr-2 flex-shrink-0 group mt-4 mb-4 md:mt-0 md:mb-0 gap-3"
+                className="w-full md:w-auto h-[4rem] lg:h-[4.5rem] px-8 md:px-10 rounded-none bg-[#1e2311] text-[#d4ff63] text-lg flex items-center justify-center hover:scale-105 active:scale-95 transition-all shadow-md md:mr-2 flex-shrink-0 group mt-4 mb-4 md:mt-0 md:mb-0 gap-3"
               >
                  <div className="w-8 h-8 rounded-none border-[2.5px] border-[#d4ff63] flex items-center justify-center text-[#d4ff63] group-hover:scale-110 transition-transform">
                     <Logo size={14} className="text-[#d4ff63]" />
