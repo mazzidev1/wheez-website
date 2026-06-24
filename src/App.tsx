@@ -11,6 +11,7 @@ import UserDashboard from './components/UserDashboard';
 import AdminDashboard from './components/AdminDashboard';
 import NotificationProvider from './components/NotificationProvider';
 import { AppState, RideParams, ContentPageId, CarDetail } from './types';
+import { BrowserRouter, Routes, Route, useNavigate, Navigate, useLocation } from 'react-router-dom';
 
 import luxurySuv from './assets/images/luxury_suv_1782136584014.jpg';
 import luxurySedan from './assets/images/luxury_sedan_1782136599120.jpg';
@@ -85,8 +86,10 @@ const CAR_FLEET_DATA: Record<string, CarDetail> = {
   },
 };
 
-export default function App() {
-  const [view, setView] = useState<AppState>('landing');
+function AppContent() {
+  const navigate = useNavigate();
+  const location = useLocation();
+
   const [rideParams, setRideParams] = useState<RideParams | undefined>();
   const [contentPageId, setContentPageId] = useState<ContentPageId>('company-about');
   const [selectedCar, setSelectedCar] = useState<CarDetail | undefined>();
@@ -97,18 +100,18 @@ export default function App() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
-      if (currentUser && !initialCheckDone && view === 'landing') {
-        setView('dashboard');
+      if (currentUser && !initialCheckDone && location.pathname === '/') {
+        navigate('/dashboard');
       }
       setInitialCheckDone(true);
     });
     return () => unsubscribe();
-  }, [view, initialCheckDone]);
+  }, [navigate, location.pathname, initialCheckDone]);
 
   const handleLogin = async () => {
     try {
       await signInWithPopup(auth, googleProvider);
-      setView('dashboard');
+      navigate('/dashboard');
     } catch (error) {
       console.error("Login failed", error);
     }
@@ -117,7 +120,7 @@ export default function App() {
   const handleLogout = async () => {
     try {
       await signOut(auth);
-      setView('landing');
+      navigate('/');
     } catch (error) {
       console.error("Logout failed", error);
     }
@@ -125,61 +128,71 @@ export default function App() {
 
   const handleStartRide = (params: RideParams) => {
     setRideParams(params);
-    setView('customer');
+    navigate('/customer');
   };
 
   const navigateToPage = (pageId: ContentPageId) => {
     setContentPageId(pageId);
-    setView('content');
+    navigate('/content');
   };
 
   const handleBookCar = (carId: string) => {
     const car = CAR_FLEET_DATA[carId];
     if (car) {
       setSelectedCar(car);
-      setView('luxury-book');
+      navigate('/luxury-book');
     }
+  };
+
+  const setViewProxy = (view: AppState) => {
+    if (view === 'landing') navigate('/');
+    else navigate(`/${view}`);
   };
 
   return (
     <div className="min-h-screen bg-brand-base text-brand-text font-sans selection:bg-brand-accent selection:text-white bg-grain flex flex-col">
       <NotificationProvider user={user} />
       <AnimatePresence mode="wait">
-        {view === 'landing' && (
-          <motion.div key="landing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.6 }} className="flex-1 flex flex-col">
-            <Landing setView={setView} onStartRide={handleStartRide} navigateToPage={navigateToPage} onBookCar={handleBookCar} onLogin={handleLogin} user={user} onAdmin={() => setView('admin')} />
-          </motion.div>
-        )}
-        {view === 'customer' && (
-          <motion.div key="customer" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.6 }} className="flex-1 flex flex-col">
-            <CustomerFlow setView={setView} initialParams={rideParams} user={user} />
-          </motion.div>
-        )}
-        {view === 'driver' && (
-          <motion.div key="driver" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.6 }} className="flex-1 flex flex-col">
-            <DriverFlow setView={setView} />
-          </motion.div>
-        )}
-        {view === 'content' && (
-          <motion.div key="content" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.6 }} className="flex-1 flex flex-col">
-            <ContentPage setView={setView} pageId={contentPageId} />
-          </motion.div>
-        )}
-        {view === 'luxury-book' && selectedCar && (
-          <motion.div key="luxury-book" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.6 }} className="flex-1 flex flex-col">
-            <LuxuryBookFlow setView={setView} selectedCar={selectedCar} />
-          </motion.div>
-        )}
-        {view === 'dashboard' && user && (
-          <motion.div key="dashboard" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.6 }} className="flex-1 flex flex-col">
-            <UserDashboard user={user} onLogout={handleLogout} onBack={() => setView('landing')} onAdmin={() => setView('admin')} onBookCar={handleBookCar} onFindDriver={() => setView('customer')} />
-          </motion.div>
-        )}
-        {view === 'admin' && (
-          <motion.div key="admin" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.6 }} className="flex-1 flex flex-col">
-            <AdminDashboard onBack={() => setView(user ? 'dashboard' : 'landing')} />
-          </motion.div>
-        )}
+        <Routes location={location} key={location.pathname}>
+          <Route path="/" element={
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.6 }} className="flex-1 flex flex-col">
+              <Landing setView={setViewProxy} onStartRide={handleStartRide} navigateToPage={navigateToPage} onBookCar={handleBookCar} onLogin={handleLogin} user={user} onAdmin={() => navigate('/admin')} />
+            </motion.div>
+          } />
+          <Route path="/customer" element={
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.6 }} className="flex-1 flex flex-col">
+              <CustomerFlow setView={setViewProxy} initialParams={rideParams} user={user} />
+            </motion.div>
+          } />
+          <Route path="/driver" element={
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.6 }} className="flex-1 flex flex-col">
+              <DriverFlow setView={setViewProxy} />
+            </motion.div>
+          } />
+          <Route path="/content" element={
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.6 }} className="flex-1 flex flex-col">
+              <ContentPage setView={setViewProxy} pageId={contentPageId} />
+            </motion.div>
+          } />
+          <Route path="/luxury-book" element={
+            selectedCar ? (
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.6 }} className="flex-1 flex flex-col">
+                <LuxuryBookFlow setView={setViewProxy} selectedCar={selectedCar} />
+              </motion.div>
+            ) : <Navigate to="/" replace />
+          } />
+          <Route path="/dashboard" element={
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.6 }} className="flex-1 flex flex-col">
+              <UserDashboard user={user} onLogout={handleLogout} onBack={() => navigate('/')} onAdmin={() => navigate('/admin')} onBookCar={handleBookCar} onFindDriver={() => navigate('/customer')} />
+            </motion.div>
+          } />
+          <Route path="/admin" element={
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.6 }} className="flex-1 flex flex-col">
+              <AdminDashboard onBack={() => navigate(user ? '/dashboard' : '/')} />
+            </motion.div>
+          } />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
       </AnimatePresence>
 
       {/* WhatsApp Floating Concierge Support */}
@@ -199,5 +212,13 @@ export default function App() {
         </span>
       </a>
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <AppContent />
+    </BrowserRouter>
   );
 }
