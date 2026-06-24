@@ -13,9 +13,6 @@ import luxurySuv from '../assets/images/luxury_suv_1782136584014.jpg';
 import luxurySedan from '../assets/images/luxury_sedan_1782136599120.jpg';
 import luxuryVan from '../assets/images/luxury_van_1782136613155.jpg';
 import yellowUrus from '../assets/images/yellow_urus_1782141995181.jpg';
-import { APIProvider, Map, useMap, useMapsLibrary } from '@vis.gl/react-google-maps';
-
-const API_KEY = process.env.GOOGLE_MAPS_PLATFORM_KEY || '';
 
 interface Trip {
   id: string;
@@ -56,45 +53,7 @@ interface Props {
   onFindDriver?: () => void;
 }
 
-function RouteDisplay({ origin, destination }: {
-  origin: string;
-  destination: string;
-}) {
-  const map = useMap();
-  const routesLib = useMapsLibrary('routes');
 
-  useEffect(() => {
-    if (!routesLib || !map || !origin || !destination) return;
-    
-    const directionsService = new google.maps.DirectionsService();
-    const directionsRenderer = new google.maps.DirectionsRenderer({
-      map,
-      suppressMarkers: false,
-      polylineOptions: {
-        strokeColor: '#1e2311',
-        strokeWeight: 4,
-      }
-    });
-
-    directionsService.route({
-      origin: origin,
-      destination: destination,
-      travelMode: google.maps.TravelMode.DRIVING,
-    }, (result, status) => {
-      if (status === google.maps.DirectionsStatus.OK && result) {
-        directionsRenderer.setDirections(result);
-      } else {
-        console.warn("Directions request failed due to " + status);
-      }
-    });
-
-    return () => {
-      directionsRenderer.setMap(null);
-    };
-  }, [routesLib, map, origin, destination]);
-
-  return null;
-}
 
 export default function UserDashboard({ user, onLogout, onBack, onAdmin, onBookCar, onFindDriver }: Props) {
   const [trips, setTrips] = useState<Trip[]>([]);
@@ -453,7 +412,11 @@ export default function UserDashboard({ user, onLogout, onBack, onAdmin, onBookC
             <div className="flex flex-col gap-4">
               <div className="flex justify-between items-center pb-4 border-b border-black/5">
                 <span className="text-brand-muted text-sm uppercase tracking-widest font-mono">Total Trips</span>
-                <span className="text-xl font-medium">{trips.length}</span>
+                {isLoading ? (
+                  <div className="h-6 w-8 bg-black/5 rounded-md animate-pulse" />
+                ) : (
+                  <span className="text-xl font-medium">{trips.length}</span>
+                )}
               </div>
             </div>
             
@@ -483,9 +446,23 @@ export default function UserDashboard({ user, onLogout, onBack, onAdmin, onBookC
           
           {activeTab === 'trips' && (
             isLoading ? (
-              <div className="bg-brand-surface border border-black/5 rounded-3xl p-12 flex flex-col items-center justify-center text-center shadow-sm min-h-[400px]">
-                <div className="w-8 h-8 rounded-full border-2 border-brand-text border-t-transparent animate-spin mb-4" />
-                <p className="text-brand-muted">Loading your trips...</p>
+              <div className="flex flex-col gap-4 w-full">
+                {[1, 2, 3].map((skeleton) => (
+                  <div key={skeleton} className="bg-brand-surface border border-black/5 rounded-3xl p-6 md:p-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 shadow-sm">
+                    <div className="flex flex-col gap-4 flex-1 w-full">
+                      <div className="flex items-center gap-3">
+                        <div className="h-6 w-24 bg-black/5 rounded-full animate-pulse" />
+                        <div className="h-4 w-16 bg-black/5 rounded-full animate-pulse" />
+                      </div>
+                      <div className="h-5 w-48 bg-black/5 rounded-md animate-pulse" />
+                      <div className="h-4 w-32 bg-black/5 rounded-md animate-pulse" />
+                    </div>
+                    <div className="flex flex-col items-start sm:items-end gap-2 w-full sm:w-auto border-t sm:border-t-0 border-black/5 pt-4 sm:pt-0">
+                      <div className="h-8 w-24 bg-black/5 rounded-md animate-pulse" />
+                      <div className="h-4 w-20 bg-black/5 rounded-md animate-pulse" />
+                    </div>
+                  </div>
+                ))}
               </div>
             ) : trips.length === 0 ? (
               <div className="bg-brand-surface border border-black/5 rounded-3xl p-12 flex flex-col items-center justify-center text-center shadow-sm min-h-[400px]">
@@ -551,6 +528,36 @@ export default function UserDashboard({ user, onLogout, onBack, onAdmin, onBookC
           )}
 
           {activeTab === 'financials' && (
+            isLoading ? (
+              <div className="flex flex-col gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  {[1, 2, 3].map((skeleton) => (
+                    <div key={skeleton} className="bg-brand-surface border border-black/5 rounded-3xl p-6 shadow-xs">
+                      <div className="flex justify-between items-start mb-4">
+                        <div className="h-3 w-24 bg-black/5 rounded-full animate-pulse" />
+                        <div className="w-8 h-8 rounded-full bg-black/5 animate-pulse" />
+                      </div>
+                      <div className="h-8 w-32 bg-black/5 rounded-md animate-pulse mt-4" />
+                      <div className="h-3 w-40 bg-black/5 rounded-md animate-pulse mt-2" />
+                    </div>
+                  ))}
+                </div>
+                <div className="bg-brand-surface border border-black/5 rounded-3xl p-6 md:p-8 shadow-sm justify-start">
+                  <div className="flex flex-col gap-4">
+                    {[1, 2, 3].map((skeleton) => (
+                      <div key={skeleton} className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 bg-brand-base border border-black/5 rounded-2xl gap-4">
+                        <div className="flex flex-col gap-2 w-full">
+                          <div className="h-4 w-32 bg-black/5 rounded-full animate-pulse" />
+                          <div className="h-4 w-48 bg-black/5 rounded-md animate-pulse" />
+                          <div className="h-3 w-64 bg-black/5 rounded-md animate-pulse" />
+                        </div>
+                        <div className="h-8 w-32 bg-black/5 rounded-xl animate-pulse shrink-0" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ) : (
             <div className="flex flex-col gap-6">
               {/* Financial stat cards */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -648,12 +655,37 @@ export default function UserDashboard({ user, onLogout, onBack, onAdmin, onBookC
                 )}
               </div>
             </div>
+            )
           )}
 
           {activeTab === 'rentals' && (
             <div className="flex flex-col gap-6 w-full animate-fadeIn">
               {/* My Active Booked Rentals Section */}
               {(() => {
+                if (isLoading) {
+                  return (
+                    <div className="flex flex-col gap-4">
+                      <h3 className="text-lg font-display text-[#191814] font-semibold flex items-center gap-2">
+                        <div className="h-6 w-48 bg-black/5 rounded-md animate-pulse" />
+                      </h3>
+                      <div className="grid grid-cols-1 gap-4">
+                        {[1, 2].map((skeleton) => (
+                          <div key={skeleton} className="bg-brand-surface border-2 border-emerald-500/10 rounded-3xl p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 shadow-sm">
+                            <div className="flex-1 min-w-0 space-y-3 w-full">
+                              <div className="h-4 w-32 bg-black/5 rounded-full animate-pulse" />
+                              <div className="h-6 w-48 bg-black/5 rounded-md animate-pulse" />
+                              <div className="h-4 w-64 bg-black/5 rounded-md animate-pulse" />
+                            </div>
+                            <div className="flex flex-col items-start md:items-end gap-2 shrink-0">
+                              <div className="h-4 w-20 bg-black/5 rounded-md animate-pulse" />
+                              <div className="h-8 w-24 bg-black/5 rounded-md animate-pulse" />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                }
                 const userRentals = trips.filter(t => t.category?.toLowerCase().includes('standby'));
                 if (userRentals.length === 0) return null;
                 return (

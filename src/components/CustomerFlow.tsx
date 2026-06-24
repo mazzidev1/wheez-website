@@ -7,7 +7,6 @@ import Logo from './Logo';
 import { User, signInWithPopup } from 'firebase/auth';
 import { collection, addDoc, query, where, orderBy, onSnapshot, doc, updateDoc } from 'firebase/firestore';
 import { db, auth, googleProvider, handleFirestoreError, OperationType } from '../lib/firebase';
-import { APIProvider, Map, AdvancedMarker, useMap, useMapsLibrary } from '@vis.gl/react-google-maps';
 import PaystackModal from './PaystackModal';
 
 interface Props {
@@ -18,107 +17,18 @@ interface Props {
 
 const API_KEY = process.env.GOOGLE_MAPS_PLATFORM_KEY || '';
 
-function RouteDisplay({ origin, destination }: {
-  origin: string;
-  destination: string;
-}) {
-  const map = useMap();
-  const routesLib = useMapsLibrary('routes');
 
-  useEffect(() => {
-    if (!routesLib || !map || !origin || !destination) return;
-    
-    const directionsService = new google.maps.DirectionsService();
-    const directionsRenderer = new google.maps.DirectionsRenderer({
-      map,
-      suppressMarkers: false,
-      polylineOptions: {
-        strokeColor: '#1e2311',
-        strokeWeight: 4,
-      }
-    });
-
-    directionsService.route({
-      origin: origin,
-      destination: destination,
-      travelMode: google.maps.TravelMode.DRIVING,
-    }, (result, status) => {
-      if (status === google.maps.DirectionsStatus.OK && result) {
-        directionsRenderer.setDirections(result);
-      } else {
-        console.warn("Directions request failed due to " + status);
-      }
-    });
-
-    return () => {
-      directionsRenderer.setMap(null);
-    };
-  }, [routesLib, map, origin, destination]);
-
-  return null;
-}
 
 function AddressAutocomplete({ value, onChange, placeholder }: { value: string, onChange: (val: string) => void, placeholder: string }) {
-  const [inputValue, setInputValue] = useState(value);
-  const placesLib = useMapsLibrary('places');
-  const [predictions, setPredictions] = useState<google.maps.places.AutocompletePrediction[]>([]);
-  const [isOpen, setIsOpen] = useState(false);
-
-  useEffect(() => {
-    if (value !== inputValue) {
-      setInputValue(value);
-    }
-  }, [value]);
-
-  useEffect(() => {
-    if (!placesLib || !inputValue) {
-      setPredictions([]);
-      return;
-    }
-    const service = new placesLib.AutocompleteService();
-    const timer = setTimeout(() => {
-      service.getPlacePredictions({ input: inputValue, componentRestrictions: { country: 'ng' } })
-        .then(res => setPredictions(res.predictions || []))
-        .catch(() => setPredictions([]));
-    }, 300);
-
-    return () => clearTimeout(timer);
-  }, [inputValue, placesLib]);
-
   return (
-    <div className="relative w-full z-[100]">
+    <div className="relative w-full z-10">
       <input
         type="text"
-        value={inputValue}
-        onChange={(e) => {
-          setInputValue(e.target.value);
-          onChange(e.target.value);
-          setIsOpen(true);
-        }}
-        onFocus={() => setIsOpen(true)}
-        onBlur={() => setIsOpen(false)}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         className="w-full bg-brand-base border border-black/5 rounded-2xl p-4 text-sm font-medium outline-none focus:border-brand-accent transition-colors text-brand-text placeholder-black/30"
       />
-      {isOpen && predictions.length > 0 && (
-        <div className="absolute z-[200] w-full bg-white border border-black/10 mt-1 rounded-xl shadow-lg max-h-60 overflow-y-auto">
-          {predictions.map(p => (
-            <div 
-              key={p.place_id} 
-              className="px-4 py-3 hover:bg-black/5 cursor-pointer text-sm truncate text-brand-text border-b border-black/[0.05] last:border-0"
-              onMouseDown={(e) => {
-                e.preventDefault(); // Prevents blur from closing the list before choice is processed
-                setInputValue(p.description);
-                onChange(p.description);
-                setPredictions([]);
-                setIsOpen(false);
-              }}
-            >
-              {p.description}
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
 }
@@ -294,7 +204,7 @@ export default function CustomerFlow({ setView, initialParams, user }: Props) {
   };
 
   return (
-    <APIProvider apiKey={API_KEY} version="weekly">
+    <>
       <div className="flex-grow w-full flex flex-col items-center justify-start text-brand-text min-h-screen bg-brand-base relative py-12 px-4 md:px-8">
         
         {/* Main Centered Form Panel */}
@@ -863,7 +773,7 @@ export default function CustomerFlow({ setView, initialParams, user }: Props) {
         email={user?.email || 'luxury.client@wheez.com'}
         metadata={`${category} Ride Class`}
       />
-    </APIProvider>
+    </>
   );
 }
 
